@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:zadulmuslihin/screens/categories_screen.dart';
+import 'package:zadulmuslihin/screens/lessons_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/prayer_times_screen.dart';
 import 'screens/islamic_info_screen.dart';

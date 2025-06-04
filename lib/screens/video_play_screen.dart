@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import '../archive/videoplayer-lib/models/lesson.dart';
-import '../archive/videoplayer-lib/models/note.dart';
-import '../archive/videoplayer-lib/helpers/lesson_helper.dart';
-import '../archive/videoplayer-lib/helpers/note_helper.dart';
-//import '../core/utils/youtube_utils.dart';
+import '../data/models/lesson.dart';
+import '../data/helpers/lessons_dao.dart';
+import '../data/models/note.dart';
+import '../data/helpers/notes_dao.dart';
+import '../core/utils/youtube_utils.dart';
 
 class LessonDetailScreen extends StatefulWidget {
   final Lesson lesson;
@@ -23,6 +23,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   final _noteController = TextEditingController();
   List<Note> _notes = [];
   bool _isLoadingNotes = false;
+  final _lessonDao = LessonsDao();
+  final _notesDao = NotesDao();
 
   @override
   void initState() {
@@ -42,6 +44,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       if (_controller.value.isReady && !_isPlayerReady) {
         setState(() {
           _isPlayerReady = true;
+          _errorMessage = null;
         });
       }
     });
@@ -62,9 +65,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     });
 
     try {
-      final notes = await NoteHelper.instance.getNotesForLesson(
-        widget.lesson.id,
-      );
+      final notes = await _notesDao.getNotesForLesson(widget.lesson.id!);
       setState(() {
         _notes = notes;
         _isLoadingNotes = false;
@@ -86,13 +87,12 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
     try {
       final note = Note(
-        id: 'note_${DateTime.now().millisecondsSinceEpoch}',
-        lessonId: widget.lesson.id,
+        lessonId: widget.lesson.id!,
         content: _noteController.text.trim(),
         createdAt: DateTime.now(),
       );
 
-      await NoteHelper.instance.addNote(note);
+      await _notesDao.insert(note);
       _noteController.clear();
       await _loadNotes();
 
@@ -110,9 +110,9 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     }
   }
 
-  Future<void> _deleteNote(String noteId) async {
+  Future<void> _deleteNote(int noteId) async {
     try {
-      await NoteHelper.instance.deleteNote(noteId);
+      await _notesDao.delete(noteId);
       await _loadNotes();
 
       if (mounted) {
@@ -140,10 +140,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
   Future<void> _toggleLessonCompletion() async {
     final newValue = !widget.lesson.isCompleted;
-    await LessonHelper.instance.updateLessonCompletion(
-      widget.lesson.id,
-      newValue,
-    );
+    await LessonsDao.updateLessonCompletion(widget.lesson.id, newValue);
     setState(() {
       widget.lesson.isCompleted = newValue;
     });
@@ -168,6 +165,22 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         context,
       ).showSnackBar(const SnackBar(content: Text('تم نسخ جميع الملاحظات')));
     }
+  }
+
+  void _handlePlayerError(String error) {
+    setState(() {
+      _errorMessage =
+          'حدث خطأ في تحميل الفيديو. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.';
+      _isPlayerReady = false;
+    });
+  }
+
+  void _retryVideoLoad() {
+    setState(() {
+      _errorMessage = null;
+      _isPlayerReady = false;
+    });
+    _controller.load(widget.lesson.videoId);
   }
 
   @override
@@ -250,15 +263,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                                       ),
                                       const SizedBox(height: 16),
                                       ElevatedButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            _errorMessage = null;
-                                            _isPlayerReady = false;
-                                          });
-                                          _controller.load(
-                                            widget.lesson.videoId,
-                                          );
-                                        },
+                                        onPressed: _retryVideoLoad,
                                         child: const Text('إعادة المحاولة'),
                                       ),
                                     ],
@@ -384,7 +389,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.delete),
-                                  onPressed: () => _deleteNote(note.id),
+                                  onPressed: () => _deleteNote(note.id!),
                                   tooltip: 'حذف الملاحظة',
                                 ),
                               ],
@@ -404,7 +409,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     );
   }
 
- /* Future<void> _showAddLessonDialog(BuildContext context) async {
+  Future<void> _showAddLessonDialog(BuildContext context) async {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
     final videoIdController = TextEditingController();
@@ -476,16 +481,13 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                           }
 
                           final lesson = Lesson(
-                            id: 'lesson_${DateTime.now().millisecondsSinceEpoch}',
                             title: titleController.text,
                             description: descriptionController.text,
                             videoId: videoId,
-                            categoryId: widget.lesson.categoryId,
+                            category: widget.lesson.category,
+                            type: widget.lesson.type,
                           );
-                          await LessonHelper.instance.addLesson(
-                            lesson,
-                            widget.lesson.categoryId,
-                          );
+                          await _lessonDao.insert(lesson);
                           if (mounted) {
                             Navigator.pop(context, true);
                           }
@@ -511,7 +513,4 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       Navigator.pop(context);
     }
   }
-
-*/
-
 }

@@ -1,67 +1,106 @@
 import 'package:flutter/material.dart';
-import '../archive/videoplayer-lib/models/category.dart';
-import '../archive/videoplayer-lib/models/lesson.dart';
-import '../archive/videoplayer-lib/helpers/lesson_helper.dart';
+import 'selected_lessons_screen.dart';
+import '../data/models/lesson.dart';
+import '../data/helpers/lessons_dao.dart';
 import '../core/utils/youtube_utils.dart';
-import 'lesson_detail_screen.dart';
 
-class CategoryLessonsScreen extends StatefulWidget {
-  final Category category;
-
-  const CategoryLessonsScreen({super.key, required this.category});
+class CategoriesScreen extends StatefulWidget {
+  const CategoriesScreen({super.key});
 
   @override
-  State<CategoryLessonsScreen> createState() => _CategoryLessonsScreenState();
+  State<CategoriesScreen> createState() => _CategoriesScreenState();
 }
 
-class _CategoryLessonsScreenState extends State<CategoryLessonsScreen> {
-  late List<Lesson> _lessons;
-  bool _isLoading = false;
-
+class _CategoriesScreenState extends State<CategoriesScreen>
+    with SingleTickerProviderStateMixin {
+  bool _isLoading = true;
+  late TabController _tabController;
+  final lesson_dao = LessonsDao();
+  List<Lesson> _lessons = [];
+  List<Lesson> _allLessons = [];
+  List<Lesson> _allLessonsType1 = [];
+  List<Lesson> _allLessonsType2 = [];
   @override
   void initState() {
     super.initState();
-    _lessons = List.from(widget.category.lessons);
+    _tabController = TabController(length: 2, vsync: this);
+    _initializeDatabase();
   }
 
-  /*Future<void> _updateLessonCompletion(Lesson lesson, bool isCompleted) async {
-    await LessonHelper.instance.updateLessonCompletion(lesson.id, isCompleted);
-    setState(() {
-      lesson.isCompleted = isCompleted;
-    });
-  }*/
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
-  Future<void> _loadLessons() async {
+  Future<void> _initializeDatabase() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final lessons = await LessonHelper.instance.getLessonsForCategory(
-        widget.category.id,
-      );
+      _allLessons = await lesson_dao.getAll();
+      _allLessonsType1 = await lesson_dao.getLessonByType("t1");
+      _allLessonsType2 = await lesson_dao.getLessonByType("t2");
+      print("initialTry...");
+      print(_allLessons);
+      print("... initialTry");
+      // Check if database is empty
+      final categories = await lesson_dao.getAll();
+      if (categories.isEmpty) {
+        // Add initial data
+        await lesson_dao.reloadeDeletedLesson();
+      }
+      await _loadCategories();
+    } catch (e) {
       setState(() {
-        _lessons = lessons;
+        _isLoading = false;
+      });
+      // Handle error
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final allLessons = await lesson_dao.getAll();
+      final allLessonsType1 = await lesson_dao.getLessonByType("t1");
+      final allLessonsType2 = await lesson_dao.getLessonByType("t2");
+      setState(() {
+        print("_loadCategoriesSetState...");
+        print(allLessons);
+        print(allLessonsType2);
+        print(allLessonsType1);
+        print("... _loadCategoriesSetState");
+        _allLessons = allLessons;
+        _lessons = allLessons;
+        _allLessonsType1 = allLessonsType1;
+        _allLessonsType2 = allLessonsType2;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('حدث خطأ أثناء تحميل الدروس')),
-        );
-      }
+      // Handle error
     }
   }
 
-  Future<void> _deleteLesson(Lesson lesson) async {
+  bool _isCategoryCompleted(String lessonCategory) {
+    final categoryLessons = _lessons
+        .where((lesson) => lesson.category == lessonCategory)
+        .toList();
+    return categoryLessons.isNotEmpty &&
+        categoryLessons.every((lesson) => lesson.isCompleted);
+  }
+
+  Future<void> _deleteCategory(String category) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('حذف الدرس'),
-        content: const Text('هل أنت متأكد من حذف هذا الدرس؟'),
+        title: const Text('حذف الفئة'),
+        content: const Text(
+          'هل أنت متأكد من حذف هذه الفئة؟ سيتم حذف جميع الدروس المرتبطة بها.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -77,28 +116,188 @@ class _CategoryLessonsScreenState extends State<CategoryLessonsScreen> {
 
     if (confirmed == true) {
       try {
-        await LessonHelper.instance.deleteLesson(lesson.id);
-        await _loadLessons();
+        await lesson_dao.deleteCategory(category);
+        await _loadCategories();
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('تم حذف الدرس بنجاح')));
+          ).showSnackBar(const SnackBar(content: Text('تم حذف الفئة بنجاح')));
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('حدث خطأ أثناء حذف الدرس')),
+            const SnackBar(content: Text('حدث خطأ أثناء حذف الفئة')),
           );
         }
       }
     }
   }
 
+  Future<void> _reloadDefaultLessons() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('إعادة تحميل الدروس الافتراضية'),
+        content: const Text(
+          'سيتم إضافة الدروس الافتراضية المفقودة فقط. الدروس التي أضفتها لن تتأثر.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('إعادة التحميل'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        await lesson_dao.reloadeDeletedLesson();
+        await _loadCategories();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم إعادة تحميل الدروس الافتراضية بنجاح'),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('حدث خطأ أثناء إعادة تحميل الدروس الافتراضية'),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('الفئات'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 't1'),
+            Tab(text: 't2'),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.restore),
+            onPressed: _reloadDefaultLessons,
+            tooltip: 'إعادة تحميل الدروس الافتراضية',
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadCategories,
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddLessonDialog(context),
+        child: const Icon(Icons.add),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : TabBarView(
+              controller: _tabController,
+              children: [_buildCategoryList('t1'), _buildCategoryList('t2')],
+            ),
+    );
+  }
+
+  Widget _buildCategoryList(String type) {
+    //get unique categories
+    final filteredCategories = _allLessons
+        .where((c) => c.type == type)
+        .map((lesson) => lesson.category)
+        .toSet()
+        .toList();
+
+    return filteredCategories.isEmpty
+        ? Center(child: Text('لا توجد فئات من $type'))
+        : ListView.builder(
+            itemCount: filteredCategories.length,
+            itemBuilder: (context, index) {
+              final category = filteredCategories[index];
+              final isCompleted = _isCategoryCompleted(category);
+              final categoryLessons = _allLessons
+                  .where((l) => l.category == category)
+                  .toList();
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: isCompleted ? Colors.green.shade50 : null,
+                child: ListTile(
+                  leading: Icon(
+                    Icons.folder,
+                    color: isCompleted ? Colors.green.shade700 : null,
+                  ),
+                  title: Text(
+                    category,
+                    style: TextStyle(
+                      color: isCompleted ? Colors.green.shade700 : null,
+                      fontWeight: isCompleted ? FontWeight.bold : null,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${categoryLessons.length} دروس',
+                    style: TextStyle(
+                      color: isCompleted ? Colors.green.shade700 : null,
+                    ),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () => _deleteCategory(category),
+                        tooltip: 'حذف الفئة',
+                      ),
+                      const Icon(Icons.arrow_forward_ios),
+                    ],
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            CategoryLessonsScreen(categoryName: category),
+                      ),
+                    ).then((_) => _loadCategories());
+                  },
+                ),
+              );
+            },
+          );
+  }
+
   Future<void> _showAddLessonDialog(BuildContext context) async {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
     final videoIdController = TextEditingController();
+    final categoryController = TextEditingController();
+    String selectedType = 't1';
     bool isLoading = false;
+    String? videoError;
 
     final result = await showDialog<bool>(
       context: context,
@@ -109,6 +308,15 @@ class _CategoryLessonsScreenState extends State<CategoryLessonsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                TextField(
+                  controller: categoryController,
+                  decoration: const InputDecoration(
+                    labelText: 'اسم الفئة',
+                    hintText: 'أدخل اسم الفئة',
+                  ),
+                  enabled: !isLoading,
+                ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: titleController,
                   decoration: const InputDecoration(
@@ -130,11 +338,33 @@ class _CategoryLessonsScreenState extends State<CategoryLessonsScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: videoIdController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'رابط الفيديو',
                     hintText: 'أدخل رابط الفيديو من YouTube',
+                    errorText: videoError,
                   ),
                   enabled: !isLoading,
+                  onChanged: (value) {
+                    setState(() {
+                      videoError = YoutubeUtils.getErrorMessage(value);
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedType,
+                  decoration: const InputDecoration(labelText: 'نوع الفئة'),
+                  items: const [
+                    DropdownMenuItem(value: 't1', child: Text('t1')),
+                    DropdownMenuItem(value: 't2', child: Text('t2')),
+                  ],
+                  onChanged: isLoading
+                      ? null
+                      : (value) {
+                          if (value != null) {
+                            setState(() => selectedType = value);
+                          }
+                        },
                 ),
                 if (isLoading)
                   const Padding(
@@ -153,9 +383,22 @@ class _CategoryLessonsScreenState extends State<CategoryLessonsScreen> {
               onPressed: isLoading
                   ? null
                   : () async {
-                      if (titleController.text.isNotEmpty &&
+                      if (categoryController.text.isNotEmpty &&
+                          titleController.text.isNotEmpty &&
                           descriptionController.text.isNotEmpty &&
                           videoIdController.text.isNotEmpty) {
+                        // Validate YouTube URL
+                        if (!YoutubeUtils.isValidYoutubeUrl(
+                          videoIdController.text,
+                        )) {
+                          setState(() {
+                            videoError = YoutubeUtils.getErrorMessage(
+                              videoIdController.text,
+                            );
+                          });
+                          return;
+                        }
+
                         setState(() => isLoading = true);
                         try {
                           final videoId = YoutubeUtils.extractVideoId(
@@ -166,16 +409,13 @@ class _CategoryLessonsScreenState extends State<CategoryLessonsScreen> {
                           }
 
                           final lesson = Lesson(
-                            id: 'lesson_${DateTime.now().millisecondsSinceEpoch}',
+                            category: categoryController.text,
                             title: titleController.text,
                             description: descriptionController.text,
                             videoId: videoId,
-                            categoryId: widget.category.id,
+                            type: selectedType,
                           );
-                          await LessonHelper.instance.addLesson(
-                            lesson,
-                            widget.category.id,
-                          );
+                          await lesson_dao.insert(lesson);
                           if (mounted) {
                             Navigator.pop(context, true);
                           }
@@ -198,85 +438,7 @@ class _CategoryLessonsScreenState extends State<CategoryLessonsScreen> {
     );
 
     if (result == true) {
-      await _loadLessons();
+      await _loadCategories();
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.category.name),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadLessons),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddLessonDialog(context),
-        child: const Icon(Icons.add),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _lessons.isEmpty
-          ? const Center(child: Text('لا توجد دروس متاحة'))
-          : ListView.builder(
-              itemCount: _lessons.length,
-              itemBuilder: (context, index) {
-                final lesson = _lessons[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  color: lesson.isCompleted ? Colors.green.shade50 : null,
-                  child: ListTile(
-                    leading: Icon(
-                      lesson.isCompleted
-                          ? Icons.check_circle
-                          : Icons.play_circle_outline,
-                      color: lesson.isCompleted ? Colors.green.shade700 : null,
-                    ),
-                    title: Text(
-                      lesson.title,
-                      style: TextStyle(
-                        color: lesson.isCompleted
-                            ? Colors.green.shade700
-                            : null,
-                        fontWeight: lesson.isCompleted ? FontWeight.bold : null,
-                      ),
-                    ),
-                    subtitle: Text(
-                      lesson.description,
-                      style: TextStyle(
-                        color: lesson.isCompleted
-                            ? Colors.green.shade700
-                            : null,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () => _deleteLesson(lesson),
-                          tooltip: 'حذف الدرس',
-                        ),
-                        const Icon(Icons.arrow_forward_ios),
-                      ],
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              LessonDetailScreen(lesson: lesson),
-                        ),
-                      ).then((_) => _loadLessons());
-                    },
-                  ),
-                );
-              },
-            ),
-    );
   }
 }

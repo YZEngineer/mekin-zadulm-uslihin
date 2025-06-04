@@ -1,198 +1,176 @@
 import 'package:sqflite/sqflite.dart';
+import 'database.dart';
 import 'package:path/path.dart';
-import '../models/category.dart';
-import '../models/lesson.dart';
-import '../models/note.dart';
 
+/// مساعد قاعدة البيانات للعمليات العامة
 class DatabaseHelper {
-  static final DatabaseHelper instance = DatabaseHelper._init();
+  static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
   static Database? _database;
 
-  DatabaseHelper._init();
+  DatabaseHelper._privateConstructor();
 
+  /// الحصول على مثيل قاعدة البيانات
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('lessons.db');
+    _database = await AppDatabase.getDatabase();
     return _database!;
   }
 
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
-
-    return await openDatabase(
-      path,
-      version: 3,
-      onCreate: _createDB,
-      onUpgrade: _onUpgrade,
-    );
+  /// إعادة تهيئة قاعدة البيانات
+  Future<Database> reinitializeDatabase() async {
+    _database = null;
+    return await database;
   }
 
-  Future<void> _createDB(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE categories (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        type TEXT NOT NULL DEFAULT 'المقرر العلمي'
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE lessons (
-        id TEXT PRIMARY KEY,
-        category_id TEXT NOT NULL,
-        title TEXT NOT NULL,
-        description TEXT NOT NULL,
-        video_id TEXT NOT NULL,
-        is_completed INTEGER NOT NULL DEFAULT 0,
-        FOREIGN KEY (category_id) REFERENCES categories (id)
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE notes (
-        id TEXT PRIMARY KEY,
-        lesson_id TEXT NOT NULL,
-        content TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        FOREIGN KEY (lesson_id) REFERENCES lessons (id)
-      )
-    ''');
-  }
-
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute('''
-        CREATE TABLE notes (
-          id TEXT PRIMARY KEY,
-          lesson_id TEXT NOT NULL,
-          content TEXT NOT NULL,
-          created_at INTEGER NOT NULL,
-          FOREIGN KEY (lesson_id) REFERENCES lessons (id)
-        )
-      ''');
-    }
-    if (oldVersion < 3) {
-      await db.execute(
-        'ALTER TABLE categories ADD COLUMN type TEXT NOT NULL DEFAULT "المقرر العلمي"',
-      );
+  /// إدراج سجل في الجدول
+  Future<int> insert(String table, Map<String, dynamic> row) async {
+    try {
+      Database db = await database;
+      return await db.insert(table, row);
+    } catch (e) {
+      print('خطأ في إدراج البيانات: $e');
+      return -1;
     }
   }
 
-  // Category operations
-  Future<String> insertCategory(Category category) async {
-    final db = await database;
-    await db.insert('categories', {
-      'id': category.id,
-      'name': category.name,
-      'type': category.type,
-    });
-    return category.id;
-  }
-
-  Future<List<Category>> getAllCategories() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('categories');
-    return List.generate(maps.length, (i) {
-      return Category(
-        id: maps[i]['id'],
-        name: maps[i]['name'],
-        type: maps[i]['type'] ?? 'المقرر العلمي',
-        lessons: [], // Will be populated separately
+  /// إدراج أو استبدال سجل في الجدول (للتعامل مع قيود UNIQUE)
+  Future<int> insertOrReplace(String table, Map<String, dynamic> row) async {
+    try {
+      Database db = await database;
+      return await db.insert(
+        table,
+        row,
+        conflictAlgorithm: ConflictAlgorithm.replace,
       );
-    });
+    } catch (e) {
+      print('خطأ في إدراج أو استبدال البيانات: $e');
+      return -1;
+    }
   }
 
-  // Lesson operations
-  Future<String> insertLesson(Lesson lesson, String categoryId) async {
-    final db = await database;
-    await db.insert('lessons', {
-      'id': lesson.id,
-      'category_id': categoryId,
-      'title': lesson.title,
-      'description': lesson.description,
-      'video_id': lesson.videoId,
-      'is_completed': lesson.isCompleted ? 1 : 0,
-    });
-    return lesson.id;
-  }
-
-  Future<List<Lesson>> getLessonsForCategory(String categoryId) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'lessons',
-      where: 'category_id = ?',
-      whereArgs: [categoryId],
-    );
-    return List.generate(maps.length, (i) {
-      return Lesson(
-        id: maps[i]['id'],
-        title: maps[i]['title'],
-        description: maps[i]['description'],
-        videoId: maps[i]['video_id'],
-        categoryId: maps[i]['category_id'],
-        isCompleted: maps[i]['is_completed'] == 1,
+  /// تحديث سجل في الجدول
+  Future<int> update(
+    String table,
+    Map<String, dynamic> row,
+    String whereClause,
+    List<dynamic> whereArgs,
+  ) async {
+    try {
+      Database db = await database;
+      return await db.update(
+        table,
+        row,
+        where: whereClause,
+        whereArgs: whereArgs,
       );
-    });
+    } catch (e) {
+      print('خطأ في تحديث البيانات: $e');
+      return -1;
+    }
   }
 
-  Future<void> updateLessonCompletion(String lessonId, bool isCompleted) async {
-    final db = await database;
-    await db.update(
-      'lessons',
-      {'is_completed': isCompleted ? 1 : 0},
-      where: 'id = ?',
-      whereArgs: [lessonId],
-    );
+  /// حذف سجل من الجدول
+  Future<int> delete(
+    String table,
+    String whereClause,
+    List<dynamic> whereArgs,
+  ) async {
+    try {
+      Database db = await database;
+      return await db.delete(table, where: whereClause, whereArgs: whereArgs);
+    } catch (e) {
+      print('خطأ في حذف البيانات: $e');
+      return -1;
+    }
   }
 
-  Future<void> deleteCategory(String categoryId) async {
-    final db = await database;
-    await db.delete(
-      'lessons',
-      where: 'category_id = ?',
-      whereArgs: [categoryId],
-    );
-    await db.delete('categories', where: 'id = ?', whereArgs: [categoryId]);
-  }
-
-  Future<void> deleteLesson(String lessonId) async {
-    final db = await database;
-    await db.delete('lessons', where: 'id = ?', whereArgs: [lessonId]);
-  }
-
-  // Note operations
-  Future<String> insertNote(Note note) async {
-    final db = await database;
-    await db.insert('notes', {
-      'id': note.id,
-      'lesson_id': note.lessonId,
-      'content': note.content,
-      'created_at': note.createdAt.millisecondsSinceEpoch,
-    });
-    return note.id;
-  }
-
-  Future<List<Note>> getNotesForLesson(String lessonId) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'notes',
-      where: 'lesson_id = ?',
-      whereArgs: [lessonId],
-      orderBy: 'created_at DESC',
-    );
-    return List.generate(maps.length, (i) {
-      return Note(
-        id: maps[i]['id'],
-        lessonId: maps[i]['lesson_id'],
-        content: maps[i]['content'],
-        createdAt: DateTime.fromMillisecondsSinceEpoch(maps[i]['created_at']),
+  /// استعلام عن سجلات من الجدول
+  Future<List<Map<String, dynamic>>> query(
+    String table, {
+    List<String>? columns,
+    String? where,
+    List<dynamic>? whereArgs,
+    String? orderBy,
+    int? limit,
+    int? offset,
+  }) async {
+    try {
+      Database db = await database;
+      return await db.query(
+        table,
+        columns: columns,
+        where: where,
+        whereArgs: whereArgs,
+        orderBy: orderBy,
+        limit: limit,
+        offset: offset,
       );
-    });
+    } catch (e) {
+      print('خطأ في استعلام البيانات: $e');
+      return [];
+    }
   }
 
-  Future<void> deleteNote(String noteId) async {
-    final db = await database;
-    await db.delete('notes', where: 'id = ?', whereArgs: [noteId]);
+  /// تنفيذ استعلام SQL مخصص
+  Future<List<Map<String, dynamic>>> rawQuery(
+    String sql, [
+    List<dynamic>? arguments,
+  ]) async {
+    Database db = await database;
+    return await db.rawQuery(sql, arguments);
+  }
+
+  /// الحصول على قائمة جميع الجداول في قاعدة البيانات
+  Future<List<String>> getAllTables() async {
+    try {
+      Database db = await database;
+      List<Map<String, dynamic>> tables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'android_%'",
+      );
+
+      return tables.map((table) => table['name'] as String).toList();
+    } catch (e) {
+      print('خطأ في الحصول على قائمة الجداول: $e');
+      return [];
+    }
+  }
+
+  /// الحصول على هيكل الجدول (أسماء الأعمدة وأنواعها)
+  Future<List<Map<String, dynamic>>> getTableStructure(String tableName) async {
+    try {
+      Database db = await database;
+      return await db.rawQuery("PRAGMA table_info($tableName)");
+    } catch (e) {
+      print('خطأ في الحصول على هيكل الجدول: $e');
+      return [];
+    }
+  }
+
+  /// الحصول على بيانات جدول معين
+  Future<List<Map<String, dynamic>>> getTableData(
+    String tableName, {
+    int limit = 50,
+  }) async {
+    try {
+      Database db = await database;
+      return await db.query(tableName, limit: limit);
+    } catch (e) {
+      print('خطأ في الحصول على بيانات الجدول: $e');
+      return [];
+    }
+  }
+
+  /// حذف قاعدة البيانات وإعادة إنشائها
+  Future<void> resetDatabase() async {
+    Database db = await database;
+    await db.close();
+    _database = null;
+
+    // حذف قاعدة البيانات وإعادة إنشائها
+    String path = await getDatabasesPath();
+    await deleteDatabase('$path/${AppDatabase.databaseName}');
+
+    // إعادة فتح قاعدة البيانات
+    _database = await AppDatabase.getDatabase();
   }
 }

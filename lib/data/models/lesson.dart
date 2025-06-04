@@ -1,17 +1,19 @@
 class Lesson {
-  final String id;
+  final int? id;
   final String title;
   final String description;
   final String videoId;
-  final String categoryId;
+  final String category;
+  final String type;
   bool isCompleted;
 
   Lesson({
-    required this.id,
+    this.id,
+    required this.category,
     required this.title,
     required this.description,
     required this.videoId,
-    required this.categoryId,
+    required this.type,
     this.isCompleted = false,
   });
 
@@ -20,8 +22,9 @@ class Lesson {
       'id': id,
       'title': title,
       'description': description,
+      'type': type,
       'video_id': videoId,
-      'category_id': categoryId,
+      'category': category,
       'is_completed': isCompleted ? 1 : 0,
     };
   }
@@ -32,8 +35,33 @@ class Lesson {
       title: map['title'],
       description: map['description'],
       videoId: map['video_id'],
-      categoryId: map['category_id'],
+      category: map['category'],
+      type: map['type'],
       isCompleted: map['is_completed'] == 1,
     );
+  }
+
+  factory Lesson.fromJson(Map<String, dynamic> json) {
+    return Lesson(
+      id: json['id'],
+      title: json['title'],
+      type: json['type'],
+      description: json['description'],
+      videoId: json['video_id'],
+      category: json['category'],
+      isCompleted: json['is_completed'] == 1,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'video_id': videoId,
+      'category': category,
+      'type': type,
+      'is_completed': isCompleted ? 1 : 0,
+    };
   }
 }
