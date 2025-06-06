@@ -183,129 +183,128 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     _controller.load(widget.lesson.videoId);
   }
 
-@override
-Widget build(BuildContext context) {
-  return YoutubePlayerBuilder(
-    player: YoutubePlayer(
-      controller: _controller,
-      showVideoProgressIndicator: true,
-      progressIndicatorColor: Colors.blue,
-      progressColors: const ProgressBarColors(
-        playedColor: Colors.blue,
-        handleColor: Colors.blueAccent,
+  @override
+  Widget build(BuildContext context) {
+    return YoutubePlayerBuilder(
+      player: YoutubePlayer(
+        controller: _controller,
+        showVideoProgressIndicator: true,
+        progressIndicatorColor: Colors.blue,
+        progressColors: const ProgressBarColors(
+          playedColor: Colors.blue,
+          handleColor: Colors.blueAccent,
+        ),
+        onReady: () {
+          setState(() {
+            _isPlayerReady = true;
+            _errorMessage = null;
+          });
+        },
+        onEnded: (data) {
+          _toggleLessonCompletion();
+        },
       ),
-      onReady: () {
-        setState(() {
-          _isPlayerReady = true;
-          _errorMessage = null;
-        });
-      },
-      onEnded: (data) {
-        _toggleLessonCompletion();
-      },
-    ),
-    builder: (context, player) {
-      return OrientationBuilder(
-        builder: (context, orientation) {
-          return Scaffold(
-            appBar: orientation == Orientation.portrait
-                ? AppBar(
-                    title: Text(widget.lesson.title),
-                    actions: [
-                      IconButton(
-                        icon: Icon(
-                          widget.lesson.isCompleted
-                              ? Icons.check_circle
-                              : Icons.check_circle_outline,
-                          color: widget.lesson.isCompleted
-                              ? Colors.green.shade700
-                              : null,
-                        ),
-                        onPressed: _toggleLessonCompletion,
-                      ),
-                    ],
-                  )
-                : null,
-            body: orientation == Orientation.portrait
-                ? SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.all(16.0),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(8.0),
+      builder: (context, player) {
+        return OrientationBuilder(
+          builder: (context, orientation) {
+            return Scaffold(
+              appBar: orientation == Orientation.portrait
+                  ? AppBar(
+                      title: Text(widget.lesson.title),
+                      actions: [
+                        IconButton(
+                          icon: Icon(
+                            widget.lesson.isCompleted
+                                ? Icons.check_circle
+                                : Icons.check_circle_outline,
+                            color: widget.lesson.isCompleted
+                                ? Colors.green.shade700
+                                : null,
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8.0),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                player,
-                                if (!_isPlayerReady)
-                                  const CircularProgressIndicator(),
-                                if (_errorMessage != null)
-                                  Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.error_outline,
-                                          color: Colors.red,
-                                          size: 48,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          _errorMessage!,
-                                          style: const TextStyle(
+                          onPressed: _toggleLessonCompletion,
+                        ),
+                      ],
+                    )
+                  : null,
+              body: orientation == Orientation.portrait
+                  ? SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.all(16.0),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8.0),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  player,
+                                  if (!_isPlayerReady)
+                                    const CircularProgressIndicator(),
+                                  if (_errorMessage != null)
+                                    Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.error_outline,
                                             color: Colors.red,
+                                            size: 48,
                                           ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        ElevatedButton(
-                                          onPressed: _retryVideoLoad,
-                                          child: const Text('إعادة المحاولة'),
-                                        ),
-                                      ],
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            _errorMessage!,
+                                            style: const TextStyle(
+                                              color: Colors.red,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          ElevatedButton(
+                                            onPressed: _retryVideoLoad,
+                                            child: const Text('إعادة المحاولة'),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.lesson.title,
+                                  style:
+                                      Theme.of(context).textTheme.headlineSmall,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  widget.lesson.description,
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
                               ],
                             ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.lesson.title,
-                                style:
-                                    Theme.of(context).textTheme.headlineSmall,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                widget.lesson.description,
-                                style:
-                                    Theme.of(context).textTheme.bodyLarge,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(),
-                        _buildNotesSection(),
-                      ],
-                    ),
-                  )
-                : player,
-          );
-        },
-      );
-    },
-  );
-}
+                          const Divider(),
+                          _buildNotesSection(),
+                        ],
+                      ),
+                    )
+                  : player,
+            );
+          },
+        );
+      },
+    );
+  }
 
   Widget _buildNotesSection() {
     return Padding(
