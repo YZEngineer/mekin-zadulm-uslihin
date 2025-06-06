@@ -1,10 +1,11 @@
 import 'package:intl/intl.dart';
 import 'adhan_time.dart';
 import '../../core/functions/utils.dart';
+
 /// نموذج يمثل الأذان الحالي (الأذان النشط حالياً)
 class CurrentAdhan {
-  final int id;
-  final int locationId;
+  final int? id;
+  final int? locationId;
   final DateTime date;
   final String fajrTime; // وقت أذان الفجر
   final String sunriseTime; // وقت الشروق
@@ -14,8 +15,8 @@ class CurrentAdhan {
   final String ishaTime; // وقت أذان العشاء
 
   CurrentAdhan({
-    required this.id,
-    required this.locationId,
+    this.id,
+    this.locationId,
     required this.date,
     this.fajrTime = '00:00',
     this.sunriseTime = '00:00',
@@ -24,27 +25,44 @@ class CurrentAdhan {
     this.maghribTime = '00:00',
     this.ishaTime = '00:00',
   }) {
-    // التحقق من صحة صيغة أوقات الصلاة
-    if (!isValidTimeFormat(fajrTime)) {
-      throw FormatException('صيغة وقت الفجر غير صالحة: $fajrTime');
-    }
-    if (!isValidTimeFormat(sunriseTime)) {
-      throw FormatException('صيغة وقت الشروق غير صالحة: $sunriseTime');
-    }
-    if (!isValidTimeFormat(dhuhrTime)) {
-      throw FormatException('صيغة وقت الظهر غير صالحة: $dhuhrTime');
-    }
-    if (!isValidTimeFormat(asrTime)) {
-      throw FormatException('صيغة وقت العصر غير صالحة: $asrTime');
-    }
-    if (!isValidTimeFormat(maghribTime)) {
-      throw FormatException('صيغة وقت المغرب غير صالحة: $maghribTime');
-    }
-    if (!isValidTimeFormat(ishaTime)) {
-      throw FormatException('صيغة وقت العشاء غير صالحة: $ishaTime');
+    _validateTimes();
+  }
+
+  /// التحقق من صحة جميع الأوقات
+  void _validateTimes() {
+    final times = {
+      'الفجر': fajrTime,
+      'الشروق': sunriseTime,
+      'الظهر': dhuhrTime,
+      'العصر': asrTime,
+      'المغرب': maghribTime,
+      'العشاء': ishaTime,
+    };
+
+    for (var entry in times.entries) {
+      if (!isValidTimeFormat(entry.value)) {
+        throw FormatException(
+            'صيغة وقت ${entry.key} غير صالحة: ${entry.value}');
+      }
     }
   }
 
+  /// التحقق من صحة صيغة الوقت
+  static bool isValidTimeFormat(String time) {
+    if (time.isEmpty) return false;
+
+    final parts = time.split(':');
+    if (parts.length != 2) return false;
+
+    try {
+      final hours = int.parse(parts[0]);
+      final minutes = int.parse(parts[1]);
+
+      return hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60;
+    } catch (e) {
+      return false;
+    }
+  }
 
   factory CurrentAdhan.fromAdhanTimes(AdhanTimes adhanTimes) {
     return CurrentAdhan(
@@ -62,42 +80,52 @@ class CurrentAdhan {
 
   /// إنشاء نموذج من خريطة بيانات
   factory CurrentAdhan.fromMap(Map<String, dynamic> map) {
-    // معالجة التاريخ: يمكن أن يكون إما String أو DateTime
-    DateTime dateTime;
-    if (map['date'] is String) {
-      dateTime = DateTime.parse(map['date']);
-    } else if (map['date'] is DateTime) {
-      dateTime = map['date'];
-    } else {
-      throw FormatException('صيغة التاريخ غير صالحة: ${map['date']}');
-    }
+    try {
+      // معالجة التاريخ: يمكن أن يكون إما String أو DateTime
+      DateTime dateTime;
+      if (map['date'] is String) {
+        dateTime = DateTime.parse(map['date']);
+      } else if (map['date'] is DateTime) {
+        dateTime = map['date'];
+      } else {
+        throw FormatException('صيغة التاريخ غير صالحة: ${map['date']}');
+      }
 
-    return CurrentAdhan(
-      id:1,
-      locationId: map['location_id'],
-      date: dateTime,
-      fajrTime: map['fajr_time'] ?? '00:00',
-      sunriseTime: map['sunrise_time'] ?? '00:00',
-      dhuhrTime: map['dhuhr_time'] ?? '00:00',
-      asrTime: map['asr_time'] ?? '00:00',
-      maghribTime: map['maghrib_time'] ?? '00:00',
-      ishaTime: map['isha_time'] ?? '00:00',
-    );
+      return CurrentAdhan(
+        id: map['id'] ?? 1,
+        locationId: map['location_id'] ?? 1,
+        date: dateTime,
+        fajrTime: map['fajr_time'] ?? '00:00',
+        sunriseTime: map['sunrise_time'] ?? '00:00',
+        dhuhrTime: map['dhuhr_time'] ?? '00:00',
+        asrTime: map['asr_time'] ?? '00:00',
+        maghribTime: map['maghrib_time'] ?? '00:00',
+        ishaTime: map['isha_time'] ?? '00:00',
+      );
+    } catch (e) {
+      print('خطأ في تحويل البيانات إلى نموذج CurrentAdhan: $e');
+      rethrow;
+    }
   }
 
   /// تحويل النموذج إلى خريطة بيانات لحفظها في قاعدة البيانات
   Map<String, dynamic> toMap() {
-    return {
-      'id': id > 0 ? id : null, // لا نضمن المعرف إذا كان -1 (سجل جديد)
-      'location_id': locationId,
-      'date': DateFormat('yyyy-MM-dd').format(date),
-      'fajr_time': fajrTime,
-      'sunrise_time': sunriseTime,
-      'dhuhr_time': dhuhrTime,
-      'asr_time': asrTime,
-      'maghrib_time': maghribTime,
-      'isha_time': ishaTime,
-    };
+    try {
+      return {
+        'id': id ?? 1,
+        'location_id': locationId ?? 1,
+        'date': DateFormat('yyyy-MM-dd').format(date),
+        'fajr_time': fajrTime,
+        'sunrise_time': sunriseTime,
+        'dhuhr_time': dhuhrTime,
+        'asr_time': asrTime,
+        'maghrib_time': maghribTime,
+        'isha_time': ishaTime,
+      };
+    } catch (e) {
+      print('خطأ في تحويل نموذج CurrentAdhan إلى خريطة: $e');
+      rethrow;
+    }
   }
 
   /// إنشاء نسخة معدلة من هذا النموذج

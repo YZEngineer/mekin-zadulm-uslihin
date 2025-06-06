@@ -1,9 +1,9 @@
 class DailyTask {
   final int? id;
   final String title;
-  final int category; // عادات، أهداف، رياضة، أخرى
+  final int category; // عادات، أهداف، رياضة،
   final bool completed;
-  final bool workOn; // يومي، أسبوعي، شهري، لا يتكرر
+  final bool workOn;
 
   DailyTask({
     this.id,
@@ -14,7 +14,8 @@ class DailyTask {
   }) {
     if (title.isEmpty) {
       throw ArgumentError(
-          'البيانات غير كاملة: يجب توفير عنوان المهمة وتصنيف'); // ممكن حذفه لاحقا
+        'البيانات غير كاملة: يجب توفير عنوان المهمة وتصنيف',
+      ); // ممكن حذفه لاحقا
     }
   }
 

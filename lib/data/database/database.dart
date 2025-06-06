@@ -9,22 +9,23 @@ class AppDatabase {
   static const int databaseVersion = 1;
 
   // أسماء الجداول
-  static const String tableAdhanTimes = 'adhan_times';
-  static const String tableCurrentAdhan = 'current_adhan';
   static const String tableCurrentLocation = 'current_location';
-  static const String tableDailyTask = 'daily_tasks';
-  static const String tableDailyWorship = 'daily_worship';
-  static const String tableIslamicInformation = 'islamic_information';
-  static const String tableLocation = 'locations';
-  static const String tableWorshipHistory = 'worship_history';
-  static const String tableThoughtHistory = 'thought_history';
-  static const String tableThought = 'thought';
-  static const String tableDailyMessage = 'daily_message';
-  static const String tableMyLibrary = 'my_library';
+  static const String tableCurrentPrayer = 'current_prayer';
   static const String tableSettings = 'settings';
+  static const String tableDailyTasks = 'daily_tasks';
+  static const String tableDailyWorship = 'daily_worship';
+  static const String tableIslamicInfo = 'islamic_info';
+  static const String tableWorshipLog = 'worship_log';
+  static const String tableThoughtsLog = 'thoughts_log';
+  static const String tableThoughts = 'thoughts';
+  static const String tableDailyMessages = 'daily_messages';
+  static const String tableMyLibrary = 'my_library';
   static const String tablePrayerNotifications = 'prayer_notifications';
   static const String tableLessons = 'lessons';
   static const String tableNotes = 'notes';
+  static const String tableAthkar = 'athkar';
+  static const String tableHadiths = 'hadiths';
+  static const String tableQuranDuas = 'quran_duas';
 
   /// إنشاء قاعدة البيانات
   static Future<Database> getDatabase() async {
@@ -33,7 +34,6 @@ class AppDatabase {
       return await openDatabase(
         join(await getDatabasesPath(), databaseName),
         onCreate: _onCreate,
-        onUpgrade: _onUpgrade,
         version: databaseVersion,
       );
     } catch (e) {
@@ -47,34 +47,33 @@ class AppDatabase {
     try {
       print("بدء إنشاء جداول قاعدة البيانات");
 
-      // ١. أولاً: إنشاء جدول المواقع
-      await _createTable(db, '''
-        CREATE TABLE IF NOT EXISTS $tableLocation (
+      // إنشاء جدول الموقع الحالي
+      await _createTable(
+          db,
+          '''
+        CREATE TABLE IF NOT EXISTS $tableCurrentLocation (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           latitude REAL NOT NULL,
           longitude REAL NOT NULL,
-          city TEXT,
-          country TEXT,
-          timezone TEXT,
-          madhab TEXT,
-          method_id INTEGER NOT NULL)
-      ''', 'جدول المواقع');
-
-      // ٢. ثانياً: إنشاء جدول الموقع الحالي
-      await _createTable(db, '''
-        CREATE TABLE IF NOT EXISTS $tableCurrentLocation (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          location_id INTEGER NOT NULL DEFAULT 1,
-          FOREIGN KEY (location_id) REFERENCES $tableLocation (id)
+          city TEXT NOT NULL,
+          country TEXT NOT NULL
         )
-      ''', 'جدول الموقع الحالي');
+      ''',
+          'جدول الموقع الحالي');
 
-      // إنشاء سجل للموقع الحالي بقيمة افتراضية 1
-      await db.insert(tableCurrentLocation, {'location_id': 1});
+      // إضافة الموقع الافتراضي
+      await db.insert(tableCurrentLocation, {
+        'latitude': 41.0082,
+        'longitude': 28.9784,
+        'city': 'x',
+        'country': 'xx'
+      });
 
-      // ٣. ثالثاً: إنشاء جدول أوقات الأذان
-      await _createTable(db, '''
-        CREATE TABLE IF NOT EXISTS $tableAdhanTimes (
+      // إنشاء جدول الأذان الحالي
+      await _createTable(
+          db,
+          '''
+        CREATE TABLE IF NOT EXISTS $tableCurrentPrayer (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           location_id INTEGER NOT NULL,
           date TEXT NOT NULL,
@@ -83,36 +82,21 @@ class AppDatabase {
           dhuhr_time TEXT NOT NULL DEFAULT '00:00',
           asr_time TEXT NOT NULL DEFAULT '00:00',
           maghrib_time TEXT NOT NULL DEFAULT '00:00',
-          isha_time TEXT NOT NULL DEFAULT '00:00',
-          UNIQUE(location_id, date),
-          FOREIGN KEY (location_id) REFERENCES $tableLocation (id)
-        )
-      ''', 'جدول أوقات الأذان');
+          isha_time TEXT NOT NULL DEFAULT '00:00')
+      ''',
+          'جدول الأذان الحالي');
 
-      // ٤. رابعاً: إنشاء جدول الأذان الحالي
-      await _createTable(db, '''
-        CREATE TABLE IF NOT EXISTS $tableCurrentAdhan (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          location_id INTEGER NOT NULL,
-          date TEXT NOT NULL,
-          fajr_time TEXT NOT NULL DEFAULT '00:00',
-          sunrise_time TEXT NOT NULL DEFAULT '00:00',
-          dhuhr_time TEXT NOT NULL DEFAULT '00:00',
-          asr_time TEXT NOT NULL DEFAULT '00:00',
-          maghrib_time TEXT NOT NULL DEFAULT '00:00',
-          isha_time TEXT NOT NULL DEFAULT '00:00',
-          FOREIGN KEY (location_id) REFERENCES $tableLocation (id)
-        )
-      ''', 'جدول الأذان الحالي');
-
-      // ٥. خامساً: إنشاء جدول الإعدادات
-      await _createTable(db, '''
+      // إنشاء جدول الإعدادات
+      await _createTable(
+          db,
+          '''
         CREATE TABLE IF NOT EXISTS $tableSettings (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           key TEXT NOT NULL,
           value TEXT NOT NULL
         )
-      ''', 'جدول الإعدادات');
+      ''',
+          'جدول الإعدادات');
 
       // إضافة إعدادات افتراضية
       List<Map<String, dynamic>> defaultSettings = [
@@ -126,18 +110,78 @@ class AppDatabase {
       }
 
       // جدول المهام اليومية
-      await _createTable(db, '''
-        CREATE TABLE IF NOT EXISTS $tableDailyTask (
+      await _createTable(
+          db,
+          '''
+        CREATE TABLE IF NOT EXISTS $tableDailyTasks (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
           is_completed INTEGER NOT NULL,
           is_on_working INTEGER NOT NULL,
           category INTEGER NOT NULL
         )
-      ''', 'جدول المهام اليومية');
+      ''',
+          'جدول المهام اليومية');
+
+      // إضافة مهام يومية افتراضية
+      print('جاري إضافة المهام اليومية الافتراضية...');
+      List<Map<String, dynamic>> defaultTasks = [
+        // العادات
+        {
+          'title': 'قراءة كتاب',
+          'is_completed': 0,
+          'is_on_working': 1,
+          'category': 0, // العادات
+        },
+        {
+          'title': 'صلة رحم',
+          'is_completed': 0,
+          'is_on_working': 1,
+          'category': 0, // العادات
+        },
+        // الأهداف
+        {
+          'title': 'حفظ القرآن',
+          'is_completed': 0,
+          'is_on_working': 1,
+          'category': 1, // الأهداف
+        },
+
+        {
+          'title': 'بلانك',
+          'is_completed': 0,
+          'is_on_working': 1,
+          'category': 2, // الأهداف
+        },
+        {
+          'title': 'عقلة',
+          'is_completed': 0,
+          'is_on_working': 1,
+          'category': 2, // الأهداف
+        },
+        {
+          'title': 'ضغط',
+          'is_completed': 0,
+          'is_on_working': 1,
+          'category': 2, // الأهداف
+        },
+        {
+          'title': 'تمارين معدة',
+          'is_completed': 0,
+          'is_on_working': 1,
+          'category': 2, // الأهداف
+        },
+      ];
+
+      for (var task in defaultTasks) {
+        await db.insert(tableDailyTasks, task);
+      }
+      print('تم إضافة المهام اليومية الافتراضية بنجاح');
 
       // جدول العبادات اليومية
-      await _createTable(db, '''
+      await _createTable(
+          db,
+          '''
         CREATE TABLE IF NOT EXISTS $tableDailyWorship (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           fajr_prayer INTEGER NOT NULL,
@@ -150,65 +194,900 @@ class AppDatabase {
           witr INTEGER NOT NULL,
           quran_reading INTEGER NOT NULL
         )
-      ''', 'جدول العبادات اليومية');
+      ''',
+          'جدول العبادات اليومية');
 
       // جدول المعلومات الإسلامية
-      await _createTable(db, '''
-        CREATE TABLE IF NOT EXISTS $tableIslamicInformation (
+      await _createTable(
+          db,
+          '''
+        CREATE TABLE IF NOT EXISTS $tableIslamicInfo (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
           content TEXT NOT NULL,
           category TEXT NOT NULL
         )
-      ''', 'جدول المعلومات الإسلامية');
+      ''',
+          'جدول المعلومات الإسلامية');
 
       // جدول سجل العبادات
-      await _createTable(db, '''
-        CREATE TABLE IF NOT EXISTS $tableWorshipHistory (
+      await _createTable(
+          db,
+          '''
+        CREATE TABLE IF NOT EXISTS $tableWorshipLog (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           precentOf0 INTEGER NOT NULL,
           precentOf1 INTEGER NOT NULL,
           precentOf2 INTEGER NOT NULL,
           totalday INTEGER NOT NULL
         )
-      ''', 'جدول سجل العبادات');
+      ''',
+          'جدول سجل العبادات');
 
       // جدول سجل الخواطر
-      await _createTable(db, '''
-        CREATE TABLE IF NOT EXISTS $tableThoughtHistory (
+      await _createTable(
+          db,
+          '''
+        CREATE TABLE IF NOT EXISTS $tableThoughtsLog (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           precentOf0 INTEGER NOT NULL,
           precentOf1 INTEGER NOT NULL,
           precentOf2 INTEGER NOT NULL,
           totalday INTEGER NOT NULL
         )
-      ''', 'جدول سجل الخواطر');
+      ''',
+          'جدول سجل الخواطر');
 
       // جدول الخواطر
-      await _createTable(db, '''
-        CREATE TABLE IF NOT EXISTS $tableThought (
+      await _createTable(
+          db,
+          '''
+        CREATE TABLE IF NOT EXISTS $tableThoughts (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
           content TEXT NOT NULL,
           category INTEGER NOT NULL,
           date TEXT NOT NULL
         )
-      ''', 'جدول الخواطر');
+      ''',
+          'جدول الخواطر');
 
       // جدول الرسائل اليومية
-      await _createTable(db, '''
-        CREATE TABLE IF NOT EXISTS $tableDailyMessage (
+      print('جاري إنشاء جدول الرسائل اليومية...');
+      await _createTable(
+          db,
+          '''
+        CREATE TABLE IF NOT EXISTS $tableDailyMessages (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
           content TEXT NOT NULL,
           date TEXT NOT NULL,
-          category INTEGER NOT NULL,
-          source TEXT NOT NULL
+          category TEXT NOT NULL,
+          source TEXT
         )
-      ''', 'جدول الرسائل اليومية');
+      ''',
+          'جدول الرسائل اليومية');
+      print('تم إنشاء جدول الرسائل اليومية بنجاح');
+
+      // إضافة رسائل يومية افتراضية
+      print('جاري إضافة الرسائل الافتراضية...');
+      List<Map<String, dynamic>> defaultMessages = [
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 6, 6),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 6, 7),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 6, 8),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 6, 9),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 6, 10),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 6, 11),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 6, 12),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 6, 13),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 6, 14),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 6, 15),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 6, 16),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 6, 17),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 6, 18),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 6, 19),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 6, 20),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 6, 21),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 6, 22),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 6, 23),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 6, 24),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 6, 25),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 6, 26),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 6, 27),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 6, 28),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 6, 29),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 6, 30),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 7, 1),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 7, 2),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 7, 3),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 7, 4),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 7, 5),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 7, 6),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 7, 7),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 7, 8),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 7, 9),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 7, 10),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 7, 11),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 7, 12),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 7, 13),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 7, 14),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 7, 15),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 7, 16),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 7, 17),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 7, 18),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 7, 19),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 7, 20),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 7, 21),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 7, 22),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 7, 23),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 7, 24),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 7, 25),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 7, 26),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 7, 27),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 7, 28),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 7, 29),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 7, 30),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 7, 31),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 8, 1),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 8, 2),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 8, 3),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 8, 4),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 8, 5),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 8, 6),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 8, 7),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 8, 8),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 8, 9),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 8, 10),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 8, 11),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 8, 12),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 8, 13),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 8, 14),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 8, 15),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 8, 16),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 8, 17),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 8, 18),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 8, 19),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 8, 20),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 8, 21),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 8, 22),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 8, 23),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 8, 24),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 8, 25),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 8, 26),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 8, 27),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 8, 28),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 8, 29),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 8, 30),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 8, 31),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 9, 1),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 9, 2),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 9, 3),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 9, 4),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 9, 5),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 9, 6),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 9, 7),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 9, 8),
+        },
+        {
+          'title': 'فضل الذكر',
+          'content':
+              'قال رسول الله ﷺ: «مثل الذي يذكر ربه والذي لا يذكر ربه مثل الحي والميت»',
+          'category': 'الأذكار',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 9, 9),
+        },
+        {
+          'title': 'فضل الصلاة',
+          'content':
+              'قال رسول الله ﷺ: «الصلوات الخمس، والجمعة إلى الجمعة، كفارة لما بينهن، ما لم تغش الكبائر»',
+          'category': 'الصلاة',
+          'source': 'صحيح البخاري',
+          'created_at': DateTime(2025, 9, 10),
+        },
+        {
+          'title': 'فضل الصيام',
+          'content':
+              'قال رسول الله ﷺ: «إذا كان يوم صوم أحدكم فلا يرفث ولا يصخب، فإن سابه أحد أو قاتله فليقل: إني صائم»',
+          'category': 'الصيام',
+          'source': 'صحيح مسلم',
+          'created_at': DateTime(2025, 9, 11),
+        },
+        {
+          'title': 'فضل الصدقة',
+          'content':
+              'قال رسول الله ﷺ: «الصدقة تطفئ الخطيئة كما يطفئ الماء النار»',
+          'category': 'الصدقة',
+          'source': 'سنن الترمذي',
+          'created_at': DateTime(2025, 9, 12),
+        },
+        {
+          'title': 'آداب الحديث',
+          'content':
+              'قال رسول الله ﷺ: «من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت»',
+          'category': 'الآداب',
+          'source': 'سنن أبي داوود',
+          'created_at': DateTime(2025, 9, 13),
+        },
+      ];
+
+      for (var message in defaultMessages) {
+        // تحويل DateTime إلى نص
+        final messageMap = Map<String, dynamic>.from(message);
+        messageMap['date'] = (messageMap['created_at'] as DateTime)
+            .toIso8601String()
+            .split('T')[0];
+        messageMap.remove('created_at');
+        await db.insert(tableDailyMessages, messageMap);
+      }
 
       // جدول مكتبتي
-      await _createTable(db, '''
+      await _createTable(
+          db,
+          '''
         CREATE TABLE IF NOT EXISTS $tableMyLibrary (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT,
@@ -219,10 +1098,13 @@ class AppDatabase {
           type TEXT NOT NULL,
           category TEXT
         )
-      ''', 'جدول مكتبتي');
+      ''',
+          'جدول مكتبتي');
 
       // جدول إشعارات الصلاة
-      await _createTable(db, '''
+      await _createTable(
+          db,
+          '''
         CREATE TABLE IF NOT EXISTS $tablePrayerNotifications (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           prayer_name TEXT NOT NULL,
@@ -232,31 +1114,50 @@ class AppDatabase {
           custom_sound TEXT,
           vibration_pattern TEXT
         )
-      ''', 'جدول إشعارات الصلاة');
+      ''',
+          'جدول إشعارات الصلاة');
 
       // جدول الدروس
-      await _createTable(db, '''
-        CREATE TABLE IF NOT EXISTS $tableLessons (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
+      await _createTable(
+          db,
+          '''
+      CREATE TABLE IF NOT EXISTS $tableLessons (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
           category TEXT NOT NULL,
-          title TEXT NOT NULL,
-          description TEXT NOT NULL,
-          video_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        video_id TEXT NOT NULL,
           type TEXT NOT NULL,
           is_completed INTEGER NOT NULL DEFAULT 0
-        )
-      ''', 'جدول الدروس');
+      )
+    ''',
+          'جدول الدروس');
 
       // جدول الملاحظات
-      await _createTable(db, '''
+      await _createTable(
+          db,
+          '''
         CREATE TABLE IF NOT EXISTS $tableNotes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
           lesson_id INTEGER NOT NULL,
-          content TEXT NOT NULL,
-          created_at INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
           FOREIGN KEY (lesson_id) REFERENCES $tableLessons (id)
+      )
+    ''',
+          'جدول الملاحظات');
+
+      // جدول الأذكار
+      await _createTable(
+          db,
+          '''
+        CREATE TABLE IF NOT EXISTS $tableAthkar (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          content TEXT NOT NULL
         )
-      ''', 'جدول الملاحظات');
+      ''',
+          'جدول الأذكار');
 
       // إضافة إشعارات افتراضية للصلوات الخمس
       List<Map<String, dynamic>> defaultPrayerNotifications = [
@@ -299,149 +1200,215 @@ class AppDatabase {
       // إضافة الدروس الافتراضية
       final defaultLessons = [
         Lesson(
-          category: "cat1",
+          category: "حقيقة طلب العلم، يجب معرفتها قبل السير",
           title: "title1-123",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t1",
+          type: "المقرر العلمي",
         ),
         Lesson(
-          category: "cat1",
+          category: "حقيقة طلب العلم، يجب معرفتها قبل السير",
           title: "title1-456",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t1",
+          type: "المقرر العلمي",
         ),
         Lesson(
-          category: "cat2",
+          category: "نظرية المعرفة ومصادر التلقي ا. أحمد السيد",
           title: "title1-789",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t1",
+          type: "المقرر العلمي",
         ),
         Lesson(
-          category: "cat2",
+          category: "نظرية المعرفة ومصادر التلقي ا. أحمد السيد",
           title: "title1-234",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t1",
+          type: "المقرر العلمي",
         ),
         Lesson(
-          category: "cat2",
+          category: "نظرية المعرفة ومصادر التلقي ا. أحمد السيد",
           title: "title1-567",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t1",
+          type: "المقرر العلمي",
         ),
         Lesson(
-          category: "cat3",
+          category:
+              "خريطة العلوم م. أيمن + مدخل الى اللغة العربية ا. أحمد السيد ",
           title: "title1-890",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t1",
+          type: "المقرر العلمي",
         ),
         Lesson(
-          category: "cat3",
+          category:
+              "خريطة العلوم م. أيمن + مدخل الى اللغة العربية ا. أحمد السيد ",
           title: "title1-345",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t1",
+          type: "المقرر العلمي",
         ),
         Lesson(
-          category: "cat3",
+          category:
+              "خريطة العلوم م. أيمن + مدخل الى اللغة العربية ا. أحمد السيد ",
           title: "title1-678",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t1",
+          type: "المقرر العلمي",
         ),
         Lesson(
-          category: "cat3",
+          category:
+              "خريطة العلوم م. أيمن + مدخل الى اللغة العربية ا. أحمد السيد ",
           title: "title1-901",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t1",
+          type: "المقرر العلمي",
         ),
         Lesson(
-          category: "cat3",
+          category:
+              "خريطة العلوم م. أيمن + مدخل الى اللغة العربية ا. أحمد السيد ",
           title: "title1-432",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t1",
+          type: "المقرر العلمي",
         ),
         Lesson(
-          category: "cat4",
+          category: "مهارة إدارة الوقت",
           title: "title1-765",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t2",
+          type: "المقرر المهاري",
         ),
         Lesson(
-          category: "cat4",
+          category: "مهارة إدارة الوقت",
           title: "title1-098",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t2",
+          type: "المقرر المهاري",
         ),
         Lesson(
-          category: "cat4",
+          category: "مهارة إدارة الوقت",
           title: "title1-321",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t2",
+          type: "المقرر المهاري",
         ),
         Lesson(
-          category: "cat5",
+          category: "العادات الذرية",
           title: "title1-654",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t2",
+          type: "المقرر المهاري",
         ),
         Lesson(
-          category: "cat6",
+          category: "مهارة البحث وهندسة الأوامر ",
           title: "title1-987",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t2",
+          type: "المقرر المهاري",
         ),
         Lesson(
-          category: "cat7",
+          category: "مهارة البحث",
           title: "title1-210",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t2",
+          type: "المقرر المهاري",
         ),
         Lesson(
-          category: "cat8",
+          category: "مهارة القراءة ",
           title: "title1-543",
           description: "description1",
           videoId: "bVOrIqeJ3XE",
-          type: "t2",
-        ),
-        Lesson(
-          category: "cat9",
-          title: "title1-876",
-          description: "description1",
-          videoId: "bVOrIqeJ3XE",
-          type: "t2",
-        ),
-        Lesson(
-          category: "cat9",
-          title: "title1-109",
-          description: "description1",
-          videoId: "bVOrIqeJ3XE",
-          type: "t2",
-        ),
-        Lesson(
-          category: "cat10",
-          title: "title1-432",
-          description: "description1",
-          videoId: "bVOrIqeJ3XE",
-          type: "t2",
+          type: "المقرر المهاري",
         ),
       ];
 
       for (var lesson in defaultLessons) {
         await db.insert(tableLessons, lesson.toMap());
+      }
+
+      // إضافة الأذكار الافتراضية
+      final defaultAthkar = [
+        {
+          'title': 'أذكار الصباح',
+          'content':
+              'أَعُوذُ بِاللهِ مِنَ الشَّيْطَانِ الرَّجِيمِ\nاللّهُ لاَ إِلَـهَ إِلاَّ هُوَ الْحَيُّ الْقَيُّومُ لاَ تَأْخُذُهُ سِنَةٌ وَلاَ نَوْمٌ...'
+        },
+        {
+          'title': 'أذكار المساء',
+          'content':
+              'أَعُوذُ بِاللهِ مِنَ الشَّيْطَانِ الرَّجِيمِ\nاللّهُ لاَ إِلَـهَ إِلاَّ هُوَ الْحَيُّ الْقَيُّومُ لاَ تَأْخُذُهُ سِنَةٌ وَلاَ نَوْمٌ...'
+        },
+        {
+          'title': 'أذكار النوم',
+          'content': 'بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا'
+        },
+        {
+          'title': 'أذكار دخول المنزل',
+          'content':
+              'بِسْمِ اللهِ وَلَجْنَا، وَبِسْمِ اللهِ خَرَجْنَا، وَعَلَى رَبِّنَا تَوَكَّلْنَا'
+        }
+      ];
+
+      for (var athkar in defaultAthkar) {
+        await db.insert(tableAthkar, athkar);
+      }
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableHadiths (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          text TEXT NOT NULL,
+          narrator TEXT NOT NULL,
+          topic TEXT NOT NULL
+        )
+      ''');
+
+      final defaultHadiths = [
+        {
+          'text':
+              'إِنَّمَا الْأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى',
+          'narrator': 'عمر بن الخطاب',
+          'topic': 'النية'
+        },
+        {
+          'text':
+              'مَنْ حَسَّنَ إِسْلَامَهُ، كَانَ لَهُ كَفَّارَةً لِمَا سَلَفَ',
+          'narrator': 'أبو هريرة',
+          'topic': 'الإسلام'
+        }
+      ];
+
+      for (var hadith in defaultHadiths) {
+        await db.insert(tableHadiths, hadith);
+      }
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableQuranDuas (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          text TEXT NOT NULL,
+          source TEXT NOT NULL,
+          theme TEXT NOT NULL
+        )
+      ''');
+
+      final defaultQuranDuas = [
+        {
+          'text':
+              'رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ',
+          'source': 'البقرة: 201',
+          'theme': 'الدعاء'
+        },
+        {
+          'text': 'رَبِّ اشْرَحْ لِي صَدْرِي * وَيَسِّرْ لِي أَمْرِي',
+          'source': 'طه: 25-26',
+          'theme': 'التيسير'
+        }
+      ];
+
+      for (var dua in defaultQuranDuas) {
+        await db.insert(tableQuranDuas, dua);
       }
 
       print("تم إنشاء جميع الجداول بنجاح");
@@ -463,22 +1430,6 @@ class AppDatabase {
       print("تم إنشاء $tableName بنجاح");
     } catch (e) {
       print("خطأ في إنشاء $tableName: $e");
-      rethrow;
-    }
-  }
-
-  /// ترقية قاعدة البيانات
-  static Future<void> _onUpgrade(
-    Database db,
-    int oldVersion,
-    int newVersion,
-  ) async {
-    try {
-      print("جاري تحديث قاعدة البيانات من الإصدار $oldVersion إلى $newVersion");
-      // سيتم تنفيذ هذا عند ترقية الإصدار في المستقبل
-      print("تم تحديث قاعدة البيانات بنجاح");
-    } catch (e) {
-      print("خطأ في تحديث قاعدة البيانات: $e");
       rethrow;
     }
   }

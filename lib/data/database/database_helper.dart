@@ -12,7 +12,14 @@ class DatabaseHelper {
   /// الحصول على مثيل قاعدة البيانات
   Future<Database> get database async {
     if (_database != null) return _database!;
+    print('جاري تهيئة قاعدة البيانات...');
     _database = await AppDatabase.getDatabase();
+    print('تم تهيئة قاعدة البيانات بنجاح');
+
+    // التحقق من الجداول
+    final tables = await getAllTables();
+    print('الجداول الموجودة في قاعدة البيانات: $tables');
+
     return _database!;
   }
 

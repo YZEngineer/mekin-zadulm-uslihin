@@ -168,7 +168,7 @@ class _CategoryLessonsScreenState extends State<CategoryLessonsScreen> {
                             title: titleController.text,
                             description: descriptionController.text,
                             videoId: videoId,
-                            type: 't1',
+                            type: 'المقرر العلمي',
                           );
                           await lesson_dao.insert(lesson);
                           if (mounted) {
@@ -213,65 +213,67 @@ class _CategoryLessonsScreenState extends State<CategoryLessonsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _lessons.isEmpty
-          ? const Center(child: Text('لا توجد دروس متاحة'))
-          : ListView.builder(
-              itemCount: _lessons.length,
-              itemBuilder: (context, index) {
-                final lesson = _lessons[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  color: lesson.isCompleted ? Colors.green.shade50 : null,
-                  child: ListTile(
-                    leading: Icon(
-                      lesson.isCompleted
-                          ? Icons.check_circle
-                          : Icons.play_circle_outline,
-                      color: lesson.isCompleted ? Colors.green.shade700 : null,
-                    ),
-                    title: Text(
-                      lesson.title,
-                      style: TextStyle(
-                        color: lesson.isCompleted
-                            ? Colors.green.shade700
-                            : null,
-                        fontWeight: lesson.isCompleted ? FontWeight.bold : null,
+              ? const Center(child: Text('لا توجد دروس متاحة'))
+              : ListView.builder(
+                  itemCount: _lessons.length,
+                  itemBuilder: (context, index) {
+                    final lesson = _lessons[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                    ),
-                    subtitle: Text(
-                      lesson.description,
-                      style: TextStyle(
-                        color: lesson.isCompleted
-                            ? Colors.green.shade700
-                            : null,
+                      color: lesson.isCompleted ? Colors.green.shade50 : null,
+                      child: ListTile(
+                        leading: Icon(
+                          lesson.isCompleted
+                              ? Icons.check_circle
+                              : Icons.play_circle_outline,
+                          color:
+                              lesson.isCompleted ? Colors.green.shade700 : null,
+                        ),
+                        title: Text(
+                          lesson.title,
+                          style: TextStyle(
+                            color: lesson.isCompleted
+                                ? Colors.green.shade700
+                                : null,
+                            fontWeight:
+                                lesson.isCompleted ? FontWeight.bold : null,
+                          ),
+                        ),
+                        subtitle: Text(
+                          lesson.description,
+                          style: TextStyle(
+                            color: lesson.isCompleted
+                                ? Colors.green.shade700
+                                : null,
+                          ),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () => _deleteLesson(lesson),
+                              tooltip: 'حذف الدرس',
+                            ),
+                            const Icon(Icons.arrow_forward_ios),
+                          ],
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  LessonDetailScreen(lesson: lesson),
+                            ),
+                          ).then((_) => _loadLessons());
+                        },
                       ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () => _deleteLesson(lesson),
-                          tooltip: 'حذف الدرس',
-                        ),
-                        const Icon(Icons.arrow_forward_ios),
-                      ],
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              LessonDetailScreen(lesson: lesson),
-                        ),
-                      ).then((_) => _loadLessons());
-                    },
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
     );
   }
 }

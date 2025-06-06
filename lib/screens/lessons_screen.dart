@@ -40,8 +40,8 @@ class _CategoriesScreenState extends State<CategoriesScreen>
 
     try {
       _allLessons = await lesson_dao.getAll();
-      _allLessonsType1 = await lesson_dao.getLessonByType("t1");
-      _allLessonsType2 = await lesson_dao.getLessonByType("t2");
+      _allLessonsType1 = await lesson_dao.getLessonByType("المقرر العلمي");
+      _allLessonsType2 = await lesson_dao.getLessonByType("المقرر المهاري");
       print("initialTry...");
       print(_allLessons);
       print("... initialTry");
@@ -63,8 +63,9 @@ class _CategoriesScreenState extends State<CategoriesScreen>
   Future<void> _loadCategories() async {
     try {
       final allLessons = await lesson_dao.getAll();
-      final allLessonsType1 = await lesson_dao.getLessonByType("t1");
-      final allLessonsType2 = await lesson_dao.getLessonByType("t2");
+      final allLessonsType1 = await lesson_dao.getLessonByType("المقرر العلمي");
+      final allLessonsType2 =
+          await lesson_dao.getLessonByType("المقرر المهاري");
       setState(() {
         print("_loadCategoriesSetState...");
         print(allLessons);
@@ -86,9 +87,8 @@ class _CategoriesScreenState extends State<CategoriesScreen>
   }
 
   bool _isCategoryCompleted(String lessonCategory) {
-    final categoryLessons = _lessons
-        .where((lesson) => lesson.category == lessonCategory)
-        .toList();
+    final categoryLessons =
+        _lessons.where((lesson) => lesson.category == lessonCategory).toList();
     return categoryLessons.isNotEmpty &&
         categoryLessons.every((lesson) => lesson.isCompleted);
   }
@@ -191,12 +191,12 @@ class _CategoriesScreenState extends State<CategoriesScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('الفئات'),
+        title: const Text('المقررات'),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 't1'),
-            Tab(text: 't2'),
+            Tab(text: 'المقرر العلمي'),
+            Tab(text: 'المقرر المهاري'),
           ],
         ),
         actions: [
@@ -219,7 +219,10 @@ class _CategoriesScreenState extends State<CategoriesScreen>
           ? const Center(child: CircularProgressIndicator())
           : TabBarView(
               controller: _tabController,
-              children: [_buildCategoryList('t1'), _buildCategoryList('t2')],
+              children: [
+                _buildCategoryList('المقرر العلمي'),
+                _buildCategoryList('المقرر المهاري')
+              ],
             ),
     );
   }
@@ -239,9 +242,8 @@ class _CategoriesScreenState extends State<CategoriesScreen>
             itemBuilder: (context, index) {
               final category = filteredCategories[index];
               final isCompleted = _isCategoryCompleted(category);
-              final categoryLessons = _allLessons
-                  .where((l) => l.category == category)
-                  .toList();
+              final categoryLessons =
+                  _allLessons.where((l) => l.category == category).toList();
 
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -295,7 +297,7 @@ class _CategoriesScreenState extends State<CategoriesScreen>
     final descriptionController = TextEditingController();
     final videoIdController = TextEditingController();
     final categoryController = TextEditingController();
-    String selectedType = 't1';
+    String selectedType = 'المقرر العلمي';
     bool isLoading = false;
     String? videoError;
 
@@ -355,8 +357,10 @@ class _CategoriesScreenState extends State<CategoriesScreen>
                   value: selectedType,
                   decoration: const InputDecoration(labelText: 'نوع الفئة'),
                   items: const [
-                    DropdownMenuItem(value: 't1', child: Text('t1')),
-                    DropdownMenuItem(value: 't2', child: Text('t2')),
+                    DropdownMenuItem(
+                        value: 'المقرر العلمي', child: Text('المقرر العلمي')),
+                    DropdownMenuItem(
+                        value: 'المقرر المهاري', child: Text('المقرر المهاري')),
                   ],
                   onChanged: isLoading
                       ? null
